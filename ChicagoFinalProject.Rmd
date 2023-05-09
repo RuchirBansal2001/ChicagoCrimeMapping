@@ -1,0 +1,243 @@
+---
+title: "EDA123"
+output: html_document
+date: "2023-04-10"
+---
+
+```{r}
+# install packages
+
+library(devtools)
+library(usethis)
+library(rcrimeanalysis)
+
+
+```
+
+```{r}
+
+data("crimes")
+dim(crimes)
+head(crimes)
+
+
+```
+
+
+```{r}
+
+# Geocoding is an essential task in crime analysis/policing and is commonly needed since location data is collected upon report (call for service or statement/affidavit) as an address from the caller or person involved. Once the data is transformed into a geospatial coordinate (latitude, longitude), analysis can take place.
+
+
+```
+
+
+
+```{r}
+
+library(ggmap)
+ggmap::register_google("AIzaSyDAzfQTKegUkuRuoUIk3u7ka5YaZTnowVo")
+addresses <- c("The White House, Washington DC", "Capitol Building, Washington DC")
+geocode_address(addresses)
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+#  kernel density estimation 
+
+narcotics <- subset(crimes, crimes$primary_type == "NARCOTICS")
+# Plot without Points
+p1 <- narcotics %>% kde_map(pts = FALSE)
+# Plot with Incident Points
+p2 <- narcotics %>% kde_map()
+leafsync::sync(p1,p2)
+
+
+```
+
+```{r}
+
+# The above maps illustrate hot spots and concentrations of criminal activities by place. The pts parameter was included to facilitate the visualization of the data. The population of the pop-up boxes from the data is automated, given that the data is structured as is the example crimes data.
+
+```
+
+
+
+```{r}
+
+
+# The id_repeat() function identifies crime incidents which occur at the same location. The identification of repeat crimes can be vital to the linkage of crime incidents and assessment of places. 
+# This information could be used to investigate whether this is a location where the narcotics are being dealt, or if there is another rationale for these incidents.
+
+narco_repeats <- id_repeat(narcotics)
+narco_repeats[2]
+
+
+
+```
+
+
+```{r}
+
+# The following code detects 168 repeat crime series. The second detected repeat series is printed which shows that 4 different possession incidents occurred on the same sidewalk throughout 2019. 
+
+```
+
+
+
+
+```{r}
+
+# Temporal Functionality
+
+# The ts_daily_decomp() and ts_month_decomp() functions perform time series decomposition of crime incident data collected over time for pattern detection. Each function is optimized for a certain frequency interval of data in the time series.
+
+# The decomposition functions transform the raw crime data into a time series, perform locally weighted regression for smoothing, and plot the resultant decomposed components of the time series into identified seasonal, trend and irregular components.
+
+narco_ts <- ts_month_decomp(narcotics, start = (2017))
+plot(narco_ts)
+
+
+```
+
+```{r}
+
+# The different components can be useful for both the development and evaluation of strategic action. For example, seasonality can be used for administrative planning through personnel and resource allocation. Changepoints in the trend component can be used to identify changes in the crime patterns. For example, if a policy change took place mid 2017, this change may have stimulated narcotics activity or have increased detection and closure rates of narcotics incidents.
+
+
+```
+
+
+```{r}
+
+# Crime Forecasting
+
+thefts <- subset(crimes, crimes$primary_type == "THEFT")
+ts_forecast(thefts, start = c(2017, 1, 1))
+
+
+
+```
+
+```{r}
+
+# The practice of predictive modeling is the process of developing a framework or model which enables the understanding and quantification of the prediction accuracy on future, yet-to-be-seen data. This can be useful in a forward-looking sense to gain an understanding of what future criminal activity could look like. The ts_forecast() function uses the crime data to predict the future crime trend and daily frequency with different confidence levels for the next 365 days.
+
+```
+
+
+
+```{r}
+# Spatio-Temporal Functionality
+
+
+# The kde_int_comp() function extends the traditional heat map (as seen with kde_map()) to perform a comparsion across time intervals. Combining the distribution of incidents with time intervals effectively visualizes the time series data in space, which can be very useful in identifying displacements in criminal activity.  
+
+# The kde_int_comp() function was used to evaluate the narcotics incidents from the beginning of 2017 and 2018. Returned is a net difference raster and then 3 leaflet (Interval 1, Interval 2, Net Difference) widgets for detailed comparison.
+
+interval <- kde_int_comp(narcotics,
+             start1="1/1/2017", 
+             end1="3/1/2017", 
+             start2="1/1/2018", 
+             end2="3/1/2018")
+
+```
+
+```{r}
+
+# Traditionally, space and time have been treated as isolated entities in crime analysis. Combination of these data into a spatio-temporal crime analysis workflow can facilitate a more robust analysis because an incident occurs as an interaction between persons or objects within both space and time domains.
+
+
+```
+
+
+```{r}
+
+interval
+
+
+
+```
+
+
+
+```{r}
+
+
+# The kernel density bandwidth is self calculated so that the levels can be kept consistent. The net difference plot is in terms of levels from the above interval maps. Note the multiple plots are synced such that a translation on one image also occurs on the other images. The interval map headers populate based on the user specified intervals. Since the purpose of the function is to compare the general trend across intervals, there is no option which can specify the plotting of crime incidents as in the kde_map() function.
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+# A contemporary method for near repeat analysis is provided. The near_repeat_analysis() function searches crime data for spatio-temporal clustering of crime. The function identifies patterns under specified thresholds (distance and time) and determines whether incident x is within this distance and time for all other incidents in the dataset. An adjacency matrix method is employed to link these incidents in igraph networks.
+
+
+```
+
+
+
+
+```{r}
+
+crime_samp <- head(crimes, n = 1000)
+out <- near_repeat_analysis(data = crime_samp, 
+                            tz = "America/Chicago",
+                            epsg = "32616")
+igraph::plot.igraph(out[[26]])
+
+
+```
+
+```{r}
+
+# Each vertex of the graph is a crime incident and each edge represents the linkage of these incidents within the specified spatial and temporal parameters. The linkage networks provide potential crime networks discovered under the near repeat premise for intelligence driven police investigation and intervention.
+
+
+```
+
+
+
+```{r}
+
+# If the thresholds for near repeat analysis are unknown to the analyst, the near_repeat_eval() function recommends optimal parameters for an area through three dimensional modelling of the spatio-temporal clustering present in the data. The function returns a 2x2 table with the optimal distance and time threshold parameters. This function is computationally intensive, therefore, a progress bar is integrated for the user to track completion percentage.
+
+```
+
+
+
+```{r}
+
+near_repeat_eval(data = crime_samp, 
+                 tz = "America/Chicago",
+                 epsg = "32616")
+
+
+
+```
+
+
+
+
